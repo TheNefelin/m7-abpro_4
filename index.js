@@ -8,58 +8,67 @@ const args = hideBin(process.argv);
 
 const pool = new Pool({
     user: "postgres",
-    password: "123456",
+    password: "!nfra48x",
     database: "banco",
-    host: "localhost"
+    host: "localhost",
+    connectionTimeoutMillis: 2000,
+    idleTimeoutMillis: 1000
 });
-
 
 yargs(hideBin(process.argv))
     .command(["Docs", "$0"], "Gestionar Estudiantes", () => {
         console.log("-----------------------------------------");
-        console.log("select N°Cta");
-        console.log("trans N°Cta monto motivo");
-        console.log("-----------------------------------------");
+        console.log("nueva N°Cta monto motivo");
+        console.log("trans N°Cta");
+        console.log("saldo N°Cta");
     })
-    .command("select", "Obtiene estudiente por rut", () => {
-        if (args.length == 2 && !isNaN(args[1])) {
-            getDataCursor("SELECT * FROM transacciones WHERE cuenta = $1", [parseInt(args[1])])
+    .command("nueva", "Nueva Transaccion", () => {
+        if (args.length == 4 && !isNaN(args[1]) && !isNaN(args[2])) {
+            transaccion(args)
         } else {
-            console.log("Error: falta de parametros o Cta NO numerica")
+            console.log("-----------------------------------------");
+            console.log("Error: falta de parametros o Cta y/o monto NO numerico");
         };
     })
-    .command("trans", "Nueva transaccion", () => {
-        if (args.length == 4 && !isNaN(args[1])) {
-
-        }
-        transaccion("", "")
+    .command("trans", "Obtiene 10 Transacciones de una Cta", () => {
+        if (args.length == 2 && !isNaN(args[1])) {
+            getDataCursor("SELECT * FROM transacciones WHERE cuenta = $1", [parseInt(args[1])]);
+        } else {
+            console.log("-----------------------------------------");
+            console.log("Error: falta de parametros o Cta NO numerica");
+        };
     })
-    .command("update", "Modifica un estudiante por rut", () => {
-
-    })
-    .command("delete", "Elimina un estudiante por rut", () => {
-
+    .command("saldo", "Saldo por Cta", () => {
+        if (args.length == 2 && !isNaN(args[1])) {
+            getDataCursor("SELECT * FROM cuentas WHERE id = $1", [parseInt(args[1])]);
+        } else {
+            console.log("-----------------------------------------");
+            console.log("Error: falta de parametros o Cta NO numerica");
+        };
     })
 .argv
 
-async function transaccion(sql, values) {
-    // await pool.query("BEGIN");
+async function transaccion(values) {
     let fecha = new Date();
     fecha = [fecha.getFullYear(), fecha.getMonth(), fecha.getDay()].join('/');
 
-    console.log(fecha)
-    try {
+    await pool.query("BEGIN");
 
-        // const resultado = await pool.query("UPDATE cuentas SET monto = monto + $2 WHERE id = $1 RETURNING");
-        // console.log(resultado.rows)
-        console.log([fecha, values[1], values[2], values[3]])
+    try {
+        await pool.query("INSERT INTO cuentas (id, saldo) VALUES ($1, $2)", [values[1], values[2]]);
+        
+        const transaccion = await pool.query("INSERT INTO transacciones (fecha, cuenta, monto, descripcion) VALUES ($1, $2, $3, $4) RETURNING *", [fecha, values[1], values[2], values[3]]);
+       
+        console.log("-----------------------------------------");
+        console.table(transaccion.rows);
+
+        await pool.query("COMMIT");
     } catch (e) {
+        await pool.query("ROLLBACK");
         console.log(e)
     };
 
-    // pool.close(() => {
-    //     pool.release;
-    // })
+    pool.release;
 };
 
 async function getDataCursor(sql, values) {
@@ -67,7 +76,7 @@ async function getDataCursor(sql, values) {
     const cursor = client.query(new Cursor(sql, values));
 
     cursor.read(10, (err, rows) => {
-        console.log(rows);
+        console.table(rows);
         cursor.close(() => {
             cursor.release;
         });
