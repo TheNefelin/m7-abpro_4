@@ -8,7 +8,7 @@ const args = hideBin(process.argv);
 
 const pool = new Pool({
     user: "postgres",
-    password: "!nfra48x",
+    password: "123456",
     database: "banco",
     host: "localhost",
     connectionTimeoutMillis: 2000,
